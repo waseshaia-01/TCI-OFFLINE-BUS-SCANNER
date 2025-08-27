@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Scanner (Offline)</title>
+</head>
+<body>
+  <h1>QR Scanner</h1>
+  <video id="video" width="300" height="200" autoplay></video>
+  <p id="message">Scan a QR code</p>
+  <a href="dashboard.html">Go to Dashboard</a>
+
+  <script src="html5-qrcode.min.js"></script>
+  <script>
+    // --- IndexedDB setup ---
+    let db;
+    const request = indexedDB.open("QRScannerDB", 1);
+    request.onupgradeneeded = event => {
+      db = event.target.result;
+      if (!db.objectStoreNames.contains("scans")) {
+        const store = db.createObjectStore("scans", { keyPath: "id" });
+        // Preload some items as Pending (optional)
+        const preload = ["BUS-1", "BUS-2", "BUS-3"];
+        preload.forEach(code => store.put({ id: code, status: "Pending" }));
+      }
+    };
+    request.onsuccess = event => { db = event.target.result; };
+
+    // --- QR scanner ---
+    const html5QrCode = new Html5Qrcode("video");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      qrCodeMessage => {
+        document.getElementById("message").innerText = "Scanned: " + qrCodeMessage;
+        
+        // Update or insert scanned code in IndexedDB
+        const tx = db.transaction("scans", "readwrite");
+        const store = tx.objectStore("scans");
+        store.put({ id: qrCodeMessage, status: "Scanned" });
+      },
+      errorMessage => {}
+    ).catch(err => console.error(err));
+
+    // --- Register service worker ---
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log("Service Worker Registered"))
+        .catch(err => console.error(err));
+    }
+  </script>
+</body>
+</html>
