@@ -13,29 +13,25 @@
 
   <script src="html5-qrcode.min.js"></script>
   <script>
-    // --- IndexedDB setup ---
     let db;
     const request = indexedDB.open("QRScannerDB", 1);
     request.onupgradeneeded = event => {
       db = event.target.result;
       if (!db.objectStoreNames.contains("scans")) {
         const store = db.createObjectStore("scans", { keyPath: "id" });
-        // Preload some items as Pending (optional)
-        const preload = ["BUS-1", "BUS-2", "BUS-3"];
+        const preload = ["BUS-1", "BUS-2", "BUS-3"]; // Pending items
         preload.forEach(code => store.put({ id: code, status: "Pending" }));
       }
     };
     request.onsuccess = event => { db = event.target.result; };
 
-    // --- QR scanner ---
+    // QR Scanner
     const html5QrCode = new Html5Qrcode("video");
     html5QrCode.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: 250 },
       qrCodeMessage => {
         document.getElementById("message").innerText = "Scanned: " + qrCodeMessage;
-        
-        // Update or insert scanned code in IndexedDB
         const tx = db.transaction("scans", "readwrite");
         const store = tx.objectStore("scans");
         store.put({ id: qrCodeMessage, status: "Scanned" });
@@ -43,7 +39,7 @@
       errorMessage => {}
     ).catch(err => console.error(err));
 
-    // --- Register service worker ---
+    // Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
         .then(() => console.log("Service Worker Registered"))
