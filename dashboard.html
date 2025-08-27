@@ -26,21 +26,19 @@
       loadDashboard();
     };
 
-    // Load dashboard and auto-refresh every second
     function loadDashboard() {
       const tx = db.transaction("scans", "readonly");
       const store = tx.objectStore("scans");
-      const getAll = store.getAll();
-      getAll.onsuccess = () => {
+      store.getAll().onsuccess = event => {
         const tbody = document.getElementById("dashboard-body");
         tbody.innerHTML = "";
-        getAll.result.forEach(item => {
+        event.target.result.forEach(item => {
           tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.status}</td></tr>`;
         });
       };
     }
 
-    setInterval(loadDashboard, 1000); // Refresh every second
+    setInterval(loadDashboard, 1000); // Auto-refresh
   </script>
 </body>
 </html>
