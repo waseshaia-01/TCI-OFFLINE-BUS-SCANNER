@@ -3,29 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard (Offline)</title>
+  <title>Dashboard (Online/Offline)</title>
 </head>
 <body>
   <h1>Dashboard</h1>
+
+  <!-- Bus / Vehicle Selection -->
+  <h2>Select Bus/Vehicle (Online Only)</h2>
+  <select id="vehicleSelect">
+    <option value="">-- Select --</option>
+    <option value="Bus-1">Bus 1</option>
+    <option value="Bus-2">Bus 2</option>
+    <option value="Bus-3">Bus 3</option>
+    <option value="Bus-4">Bus 4</option>
+    <option value="Bus-5">Bus 5</option>
+    <option value="Bus-6">Bus 6</option>
+    <option value="Bus-7">Bus 7</option>
+    <option value="Bus-8">Bus 8</option>
+    <option value="Bus-9">Bus 9</option>
+    <option value="Bus-10">Bus 10</option>
+    <option value="Bus-11">Bus 11</option>
+    <option value="Bus-12">Bus 12</option>
+    <option value="Own Vehicle">Own Vehicle</option>
+  </select>
+
+  <!-- Buttons (Online Only) -->
+  <button id="downloadTemplate">Download Excel Template</button>
+  <input type="file" id="fileInput" accept=".txt,.csv,.json">
+  <button id="uploadBtn">Upload Attendees</button>
+  <p id="uploadMessage"></p>
+
+  <!-- Dashboard Table -->
+  <h2>Attendees List</h2>
   <table border="1">
     <thead>
       <tr>
-        <th>QR Code</th>
+        <th>Name/ID</th>
         <th>Status</th>
       </tr>
     </thead>
     <tbody id="dashboard-body"></tbody>
   </table>
+
   <a href="index.html">Back to Scanner</a>
 
   <script>
     let db;
     const request = indexedDB.open("QRScannerDB", 1);
+    request.onupgradeneeded = event => {
+      db = event.target.result;
+      if (!db.objectStoreNames.contains("scans")) {
+        db.createObjectStore("scans", { keyPath: "id" });
+      }
+    };
     request.onsuccess = event => {
       db = event.target.result;
       loadDashboard();
     };
 
+    // Load dashboard
     function loadDashboard() {
       const tx = db.transaction("scans", "readonly");
       const store = tx.objectStore("scans");
@@ -37,8 +73,59 @@
         });
       };
     }
+    setInterval(loadDashboard, 1000);
 
-    setInterval(loadDashboard, 1000); // Auto-refresh
+    // Check online/offline
+    function updateOnlineStatus() {
+      const online = navigator.onLine;
+      document.getElementById("downloadTemplate").disabled = !online;
+      document.getElementById("fileInput").disabled = !online;
+      document.getElementById("uploadBtn").disabled = !online;
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    // Download Excel/CSV template
+    document.getElementById("downloadTemplate").onclick = () => {
+      const selected = document.getElementById("vehicleSelect").value;
+      if (!selected) return alert("Select a Bus/Vehicle first");
+
+      const csvContent = "Name/ID\n"; // empty template
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = selected + "_template.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Upload attendees
+    document.getElementById("uploadBtn").onclick = () => {
+      const selected = document.getElementById("vehicleSelect").value;
+      if (!selected) return alert("Select a Bus/Vehicle first");
+
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return alert("Select a file first");
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        let list = [];
+        const content = e.target.result;
+        if(file.name.endsWith(".json")) {
+          list = JSON.parse(content);
+        } else { // txt/csv
+          list = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        }
+
+        const tx = db.transaction("scans", "readwrite");
+        const store = tx.objectStore("scans");
+        list.forEach(name => store.put({ id: selected + ":" + name, status: "Pending" }));
+        document.getElementById("uploadMessage").innerText = "List uploaded!";
+      };
+      reader.readAsText(file);
+    };
   </script>
 </body>
 </html>
