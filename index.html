@@ -1,57 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Scanner (Offline)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Scanner (Offline)</title>
 </head>
 <body>
-  <h1>QR Scanner</h1>
-  <video id="video" width="300" height="200" autoplay></video>
-  <p id="message">Scan a QR code</p>
-  <a href="dashboard.html">Go to Dashboard</a>
+<h1>QR Scanner</h1>
+<video id="video" width="300" height="200" autoplay></video>
+<p id="message">Scan a QR code</p>
+<a href="dashboard.html">Go to Dashboard</a>
 
-  <script src="html5-qrcode.min.js"></script>
-  <script>
-    let db;
-    const request = indexedDB.open("QRScannerDB", 1);
+<script src="html5-qrcode.min.js"></script>
+<script>
+let db;
+const request = indexedDB.open("QRScannerDB", 1);
 
-    request.onupgradeneeded = event => {
-      db = event.target.result;
-      if (!db.objectStoreNames.contains("scans")) {
-        db.createObjectStore("scans", { keyPath: "id" });
-      }
+request.onupgradeneeded = event => {
+  db = event.target.result;
+  if (!db.objectStoreNames.contains("scans")) {
+    db.createObjectStore("scans", { keyPath: "id" });
+  }
+};
+
+request.onsuccess = event => { db = event.target.result; };
+
+// QR Scanner
+const html5QrCode = new Html5Qrcode("video");
+html5QrCode.start(
+  { facingMode: "environment" },
+  { fps: 10, qrbox: 250 },
+  qrCodeMessage => {
+    document.getElementById("message").innerText = "Scanned: " + qrCodeMessage;
+    const tx = db.transaction("scans", "readwrite");
+    const store = tx.objectStore("scans");
+    const record = store.get(qrCodeMessage);
+    record.onsuccess = () => {
+      if (record.result) store.put({ id: qrCodeMessage, status: "Scanned" });
     };
+  },
+  errorMessage => {}
+).catch(err => console.error(err));
 
-    request.onsuccess = event => {
-      db = event.target.result;
-    };
-
-    // QR Scanner
-    const html5QrCode = new Html5Qrcode("video");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      qrCodeMessage => {
-        document.getElementById("message").innerText = "Scanned: " + qrCodeMessage;
-        const tx = db.transaction("scans", "readwrite");
-        const store = tx.objectStore("scans");
-        const record = store.get(qrCodeMessage);
-        record.onsuccess = () => {
-          if (record.result) {
-            store.put({ id: qrCodeMessage, status: "Scanned" });
-          }
-        };
-      },
-      errorMessage => {}
-    ).catch(err => console.error(err));
-
-    // Service Worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js')
-        .then(() => console.log("Service Worker Registered"))
-        .catch(err => console.error(err));
-    }
-  </script>
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(() => console.log("Service Worker Registered"))
+    .catch(err => console.error(err));
+}
+</script>
 </body>
 </html>
