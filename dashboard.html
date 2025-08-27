@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard (Offline)</title>
+</head>
+<body>
+  <h1>Dashboard</h1>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>QR Code</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="dashboard-body"></tbody>
+  </table>
+  <a href="index.html">Back to Scanner</a>
+
+  <script>
+    let db;
+    const request = indexedDB.open("QRScannerDB", 1);
+    request.onsuccess = event => {
+      db = event.target.result;
+      loadDashboard();
+    };
+
+    // Load dashboard and auto-refresh every second
+    function loadDashboard() {
+      const tx = db.transaction("scans", "readonly");
+      const store = tx.objectStore("scans");
+      const getAll = store.getAll();
+      getAll.onsuccess = () => {
+        const tbody = document.getElementById("dashboard-body");
+        tbody.innerHTML = "";
+        getAll.result.forEach(item => {
+          tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.status}</td></tr>`;
+        });
+      };
+    }
+
+    setInterval(loadDashboard, 1000); // Refresh every second
+  </script>
+</body>
+</html>
