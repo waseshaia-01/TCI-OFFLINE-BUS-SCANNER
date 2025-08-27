@@ -1,134 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard (Online/Offline)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard (Online/Offline)</title>
 </head>
 <body>
-  <h1>Dashboard</h1>
+<h1>Dashboard</h1>
 
-  <!-- Bus / Vehicle Selection -->
-  <h2>Select Bus/Vehicle (Online Only)</h2>
-  <select id="vehicleSelect">
-    <option value="">-- Select --</option>
-    <option value="Bus-1">Bus 1</option>
-    <option value="Bus-2">Bus 2</option>
-    <option value="Bus-3">Bus 3</option>
-    <option value="Bus-4">Bus 4</option>
-    <option value="Bus-5">Bus 5</option>
-    <option value="Bus-6">Bus 6</option>
-    <option value="Bus-7">Bus 7</option>
-    <option value="Bus-8">Bus 8</option>
-    <option value="Bus-9">Bus 9</option>
-    <option value="Bus-10">Bus 10</option>
-    <option value="Bus-11">Bus 11</option>
-    <option value="Bus-12">Bus 12</option>
-    <option value="Own Vehicle">Own Vehicle</option>
-  </select>
+<h2>Select Bus/Vehicle (Online Only)</h2>
+<select id="vehicleSelect">
+  <option value="">-- Select --</option>
+  <option value="Bus-1">Bus 1</option>
+  <option value="Bus-2">Bus 2</option>
+  <option value="Bus-3">Bus 3</option>
+  <option value="Bus-4">Bus 4</option>
+  <option value="Bus-5">Bus 5</option>
+  <option value="Bus-6">Bus 6</option>
+  <option value="Bus-7">Bus 7</option>
+  <option value="Bus-8">Bus 8</option>
+  <option value="Bus-9">Bus 9</option>
+  <option value="Bus-10">Bus 10</option>
+  <option value="Bus-11">Bus 11</option>
+  <option value="Bus-12">Bus 12</option>
+  <option value="Own Vehicle">Own Vehicle</option>
+</select>
 
-  <!-- Buttons -->
-  <button id="downloadTemplate">Download Excel Template</button>
-  <input type="file" id="fileInput" accept=".txt,.csv,.json">
-  <button id="uploadBtn">Upload Attendees</button>
-  <p id="uploadMessage"></p>
+<button id="downloadTemplate">Download Excel Template</button>
+<input type="file" id="fileInput" accept=".txt,.csv,.json">
+<button id="uploadBtn">Upload Attendees</button>
+<button id="downloadQR">Download QR Codes</button>
+<p id="uploadMessage"></p>
 
-  <!-- Dashboard Table -->
-  <h2>Attendees List</h2>
-  <table border="1">
-    <thead>
-      <tr>
-        <th>Name/ID</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="dashboard-body"></tbody>
-  </table>
+<h2>Attendees List</h2>
+<table border="1">
+  <thead>
+    <tr>
+      <th>Name/ID</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody id="dashboard-body"></tbody>
+</table>
 
-  <a href="index.html">Back to Scanner</a>
+<a href="index.html">Back to Scanner</a>
 
-  <script>
-    let db;
-    const request = indexedDB.open("QRScannerDB", 1);
-    request.onupgradeneeded = event => {
-      db = event.target.result;
-      if (!db.objectStoreNames.contains("scans")) {
-        db.createObjectStore("scans", { keyPath: "id" });
-      }
-    };
-    request.onsuccess = event => {
-      db = event.target.result;
-      loadDashboard();
-    };
+<script src="qrcode.min.js"></script>
+<script>
+let db;
+const request = indexedDB.open("QRScannerDB", 1);
+request.onupgradeneeded = event => {
+  db = event.target.result;
+  if (!db.objectStoreNames.contains("scans")) {
+    db.createObjectStore("scans", { keyPath: "id" });
+  }
+};
+request.onsuccess = event => {
+  db = event.target.result;
+  loadDashboard();
+};
 
-    // Load dashboard and auto-refresh
-    function loadDashboard() {
-      const tx = db.transaction("scans", "readonly");
-      const store = tx.objectStore("scans");
-      store.getAll().onsuccess = event => {
-        const tbody = document.getElementById("dashboard-body");
-        tbody.innerHTML = "";
-        event.target.result.forEach(item => {
-          tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.status}</td></tr>`;
-        });
-      };
+// Auto-refresh dashboard
+function loadDashboard() {
+  const tx = db.transaction("scans", "readonly");
+  const store = tx.objectStore("scans");
+  store.getAll().onsuccess = event => {
+    const tbody = document.getElementById("dashboard-body");
+    tbody.innerHTML = "";
+    event.target.result.forEach(item => {
+      tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.status}</td></tr>`;
+    });
+  };
+}
+setInterval(loadDashboard, 1000);
+
+// Online/offline control
+function updateOnlineStatus() {
+  const online = navigator.onLine;
+  document.getElementById("downloadTemplate").disabled = !online;
+  document.getElementById("fileInput").disabled = !online;
+  document.getElementById("uploadBtn").disabled = !online;
+  document.getElementById("downloadQR").disabled = !online;
+  document.getElementById("uploadMessage").innerText = online ? "" : "Upload/download disabled offline";
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+// Download CSV template
+document.getElementById("downloadTemplate").onclick = () => {
+  const selected = document.getElementById("vehicleSelect").value;
+  if (!selected) return alert("Select a Bus/Vehicle first");
+  const csvContent = "Name/ID\n";
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = selected + "_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Upload attendees
+document.getElementById("uploadBtn").onclick = () => {
+  const selected = document.getElementById("vehicleSelect").value;
+  if (!selected) return alert("Select a Bus/Vehicle first");
+  const file = document.getElementById("fileInput").files[0];
+  if (!file) return alert("Select a file first");
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    let list = [];
+    const content = e.target.result;
+    if(file.name.endsWith(".json")) {
+      list = JSON.parse(content);
+    } else {
+      list = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     }
-    setInterval(loadDashboard, 1000);
 
-    // Online/offline control
-    function updateOnlineStatus() {
-      const online = navigator.onLine;
-      document.getElementById("downloadTemplate").disabled = !online;
-      document.getElementById("fileInput").disabled = !online;
-      document.getElementById("uploadBtn").disabled = !online;
-      if (!online) {
-        document.getElementById("uploadMessage").innerText = "Upload/download disabled offline";
-      } else {
-        document.getElementById("uploadMessage").innerText = "";
-      }
-    }
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    updateOnlineStatus();
+    const tx = db.transaction("scans", "readwrite");
+    const store = tx.objectStore("scans");
+    list.forEach(name => store.put({ id: selected + ":" + name, status: "Pending" }));
+    document.getElementById("uploadMessage").innerText = "List uploaded!";
+  };
+  reader.readAsText(file);
+};
 
-    // Download Excel/CSV template
-    document.getElementById("downloadTemplate").onclick = () => {
-      const selected = document.getElementById("vehicleSelect").value;
-      if (!selected) return alert("Select a Bus/Vehicle first");
-      const csvContent = "Name/ID\n";
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = selected + "_template.csv";
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+// Download QR Codes for attendees
+document.getElementById("downloadQR").onclick = () => {
+  const selected = document.getElementById("vehicleSelect").value;
+  if (!selected) return alert("Select a Bus/Vehicle first");
 
-    // Upload attendees
-    document.getElementById("uploadBtn").onclick = () => {
-      const selected = document.getElementById("vehicleSelect").value;
-      if (!selected) return alert("Select a Bus/Vehicle first");
-      const file = document.getElementById("fileInput").files[0];
-      if (!file) return alert("Select a file first");
+  const tx = db.transaction("scans", "readonly");
+  const store = tx.objectStore("scans");
+  store.getAll().onsuccess = event => {
+    const attendees = event.target.result.filter(a => a.id.startsWith(selected + ":"));
+    if (!attendees.length) return alert("No attendees found for this selection");
 
-      const reader = new FileReader();
-      reader.onload = e => {
-        let list = [];
-        const content = e.target.result;
-        if(file.name.endsWith(".json")) {
-          list = JSON.parse(content);
-        } else {
-          list = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-        }
+    attendees.forEach(att => {
+      const name = att.id.split(":")[1];
+      const tempDiv = document.createElement("div");
+      new QRCode(tempDiv, { text: name, width: 200, height: 200 });
 
-        const tx = db.transaction("scans", "readwrite");
-        const store = tx.objectStore("scans");
-        list.forEach(name => store.put({ id: selected + ":" + name, status: "Pending" }));
-        document.getElementById("uploadMessage").innerText = "List uploaded!";
-      };
-      reader.readAsText(file);
-    };
-  </script>
+      setTimeout(() => {
+        const img = tempDiv.querySelector("img");
+        const link = document.createElement("a");
+        link.href = img.src;
+        link.download = name + ".png";
+        link.click();
+      }, 200);
+    });
+  };
+};
+</script>
 </body>
 </html>
