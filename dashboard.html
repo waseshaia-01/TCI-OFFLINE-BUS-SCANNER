@@ -27,7 +27,7 @@
     <option value="Own Vehicle">Own Vehicle</option>
   </select>
 
-  <!-- Buttons (Online Only) -->
+  <!-- Buttons -->
   <button id="downloadTemplate">Download Excel Template</button>
   <input type="file" id="fileInput" accept=".txt,.csv,.json">
   <button id="uploadBtn">Upload Attendees</button>
@@ -61,7 +61,7 @@
       loadDashboard();
     };
 
-    // Load dashboard
+    // Load dashboard and auto-refresh
     function loadDashboard() {
       const tx = db.transaction("scans", "readonly");
       const store = tx.objectStore("scans");
@@ -75,12 +75,17 @@
     }
     setInterval(loadDashboard, 1000);
 
-    // Check online/offline
+    // Online/offline control
     function updateOnlineStatus() {
       const online = navigator.onLine;
       document.getElementById("downloadTemplate").disabled = !online;
       document.getElementById("fileInput").disabled = !online;
       document.getElementById("uploadBtn").disabled = !online;
+      if (!online) {
+        document.getElementById("uploadMessage").innerText = "Upload/download disabled offline";
+      } else {
+        document.getElementById("uploadMessage").innerText = "";
+      }
     }
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
@@ -90,8 +95,7 @@
     document.getElementById("downloadTemplate").onclick = () => {
       const selected = document.getElementById("vehicleSelect").value;
       if (!selected) return alert("Select a Bus/Vehicle first");
-
-      const csvContent = "Name/ID\n"; // empty template
+      const csvContent = "Name/ID\n";
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -105,7 +109,6 @@
     document.getElementById("uploadBtn").onclick = () => {
       const selected = document.getElementById("vehicleSelect").value;
       if (!selected) return alert("Select a Bus/Vehicle first");
-
       const file = document.getElementById("fileInput").files[0];
       if (!file) return alert("Select a file first");
 
@@ -115,7 +118,7 @@
         const content = e.target.result;
         if(file.name.endsWith(".json")) {
           list = JSON.parse(content);
-        } else { // txt/csv
+        } else {
           list = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
         }
 
