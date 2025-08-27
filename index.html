@@ -15,15 +15,17 @@
   <script>
     let db;
     const request = indexedDB.open("QRScannerDB", 1);
+
     request.onupgradeneeded = event => {
       db = event.target.result;
       if (!db.objectStoreNames.contains("scans")) {
-        const store = db.createObjectStore("scans", { keyPath: "id" });
-        const preload = ["BUS-1", "BUS-2", "BUS-3"]; // Pending items
-        preload.forEach(code => store.put({ id: code, status: "Pending" }));
+        db.createObjectStore("scans", { keyPath: "id" });
       }
     };
-    request.onsuccess = event => { db = event.target.result; };
+
+    request.onsuccess = event => {
+      db = event.target.result;
+    };
 
     // QR Scanner
     const html5QrCode = new Html5Qrcode("video");
@@ -34,7 +36,12 @@
         document.getElementById("message").innerText = "Scanned: " + qrCodeMessage;
         const tx = db.transaction("scans", "readwrite");
         const store = tx.objectStore("scans");
-        store.put({ id: qrCodeMessage, status: "Scanned" });
+        const record = store.get(qrCodeMessage);
+        record.onsuccess = () => {
+          if (record.result) {
+            store.put({ id: qrCodeMessage, status: "Scanned" });
+          }
+        };
       },
       errorMessage => {}
     ).catch(err => console.error(err));
