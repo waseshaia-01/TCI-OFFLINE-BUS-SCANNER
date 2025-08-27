@@ -3,6 +3,7 @@ const filesToCache = [
   "/index.html",
   "/dashboard.html",
   "/html5-qrcode.min.js",
+  "/qrcode.min.js",
   "/sw.js"
 ];
 
